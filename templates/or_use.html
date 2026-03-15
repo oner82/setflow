@@ -1,0 +1,596 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .or-page{max-width:980px}
+  .or-card{background:#fff;border:1px solid #dfe5ef;border-radius:16px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .or-top-grid{display:grid;grid-template-columns:1.1fr 1.2fr 1fr;gap:10px;align-items:end}
+  .or-subgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .or-label{font-size:13px;font-weight:700;margin-bottom:6px;color:#1f2937}
+  .room-box{min-height:48px;display:flex;align-items:center;padding:0 12px;border:1px solid #dfe5ef;border-radius:12px;background:#f8fafc;font-weight:700}
+  .choice-row{display:flex;gap:8px;flex-wrap:wrap}
+  .choice-btn{min-height:40px;padding:0 16px;border-radius:12px;border:1.5px solid #6ea8ff;background:#fff;color:#1f2937;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+  .choice-btn.active{background:#4f8ef7;color:#fff;border-color:#4f8ef7}
+  .choice-btn.warn.active{background:#f08a24;border-color:#f08a24}
+  .choice-btn.green{border-color:#63c174}
+  .choice-btn.green.active{background:#16a34a;border-color:#16a34a;color:#fff}
+  .choice-btn.disabled-like{opacity:.55;border-color:#d1d5db;color:#6b7280}
+  .stack-sm{display:flex;flex-direction:column;gap:8px}
+  .hidden{display:none !important}
+  .manual-row{display:flex;gap:8px;align-items:center}
+  .manual-row input,.inline-input{flex:1;height:40px;border-radius:12px;border:1px solid #dfe5ef;padding:0 12px}
+  .inline-select{height:40px;border-radius:12px;border:1px solid #dfe5ef;padding:0 12px;width:100%}
+  .mini-note{font-size:12px;color:#6b7280;margin-top:4px}
+  .pending-box,.inuse-box,.instance-box{background:#fff;border:1px solid #dfe5ef;border-radius:16px;padding:12px 14px;margin-top:10px}
+  .chip-wrap{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:10px 12px;border:1.5px solid #6ea8ff;border-radius:12px;background:#fff;font-weight:700}
+  .chip.warn{border-color:#f59e0b;background:#fffbeb}
+  .chip .x{cursor:pointer;color:#6b7280;font-weight:900}
+  .badge-inline{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:11px;font-weight:800;line-height:1}
+  .badge-contam{background:#fff3e8;color:#c75c00;border:1px solid #f2b676}
+  .badge-memo{background:#fffbeb;color:#b45309;border:1px solid #f3d08a}
+  .memo-link{display:inline-flex;align-items:center;gap:4px;margin-left:6px;font-size:12px;font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #f3d08a;border-radius:999px;padding:2px 8px;cursor:pointer}
+  .memo-link:hover{background:#fef3c7}
+  .item-text{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .item-badges{display:inline-flex;align-items:center;gap:4px;margin-left:6px}
+  .instance-card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:10px 12px;border:1.5px solid #63c174;border-radius:12px;background:#fff;cursor:pointer;min-width:96px;max-width:220px}
+  .instance-card.disabled-like{opacity:.55;border-color:#d1d5db;color:#6b7280}
+  .instance-card .instance-top{display:flex;align-items:center;gap:6px;font-weight:800;font-size:15px}
+  .instance-card .instance-memo{font-size:12px;color:#b45309;line-height:1.35;max-width:190px;white-space:normal;text-align:left}
+  .instance-card.warn{background:#fffbeb;border-color:#f59e0b}
+  .btn-solid{height:40px;padding:0 14px;border:none;border-radius:12px;color:#fff;font-weight:800;cursor:pointer}
+  .btn-save{background:#22c55e}
+  .btn-clear{background:#95a5a6}
+  .btn-return{background:#4f8ef7}
+  .btn-wash{background:#f59e0b}
+  .btn-all{background:#ef4444}
+  .btn-urgent{background:#dc2626;color:#fff}
+  .current-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+  .current-title{font-weight:800}
+  .contam-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:4px 8px;border-radius:999px;background:#fff3e8;color:#c75c00;border:1px solid #f2b676;margin-top:4px}
+  .item-btn{padding:10px 12px;border:1.5px solid #6ea8ff;background:#fff;border-radius:12px;font-weight:700;cursor:pointer;position:relative;min-height:62px;display:flex;align-items:flex-start;justify-content:flex-start;text-align:left}
+  .item-btn.selected{background:#4f8ef7;color:#fff}
+  .item-btn .item-badges .badge-inline{transform:translateY(-1px)}
+  .item-btn.selected .badge-contam{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.4)}
+  .item-btn.selected .badge-memo{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.45)}
+  .item-btn.memo-strong{box-shadow:0 0 0 2px rgba(245,158,11,.18) inset}
+  .item-main{display:flex;flex-direction:column;align-items:flex-start;gap:4px;line-height:1.25}
+  .item-name{font-size:15px;font-weight:800}
+  .item-memo-line{font-size:12px;font-weight:700;color:#b45309;white-space:normal;word-break:keep-all;max-width:180px}
+  .item-btn.selected .item-memo-line{color:#fff}
+  .item-btn.warn-bg{background:#fffbeb;border-color:#f59e0b}
+  .item-btn.selected.warn-bg{background:#4f8ef7}
+  .section-gap{margin-top:10px}
+  .instance-title{font-size:14px;font-weight:800;margin-bottom:8px}
+  .memo-note{font-size:12px;color:#b45309;margin-top:4px}
+  @media (max-width: 900px){
+    .or-top-grid,.or-subgrid{grid-template-columns:1fr}
+  }
+</style>
+
+<div class="page-head" style="margin-bottom:10px;">
+  <div>
+    <h1 class="page-title" style="font-size:28px;">OR 사용 등록</h1>
+    <div class="subtle">현재 방에서 사용하는 기구를 등록하고 반납 요청한다</div>
+  </div>
+  <div id="currentTime" class="current-time"></div>
+</div>
+
+<div class="or-page">
+
+  <form method="post" action="/or-use/register" id="register-form">
+    <input type="hidden" name="department_id" value="{{ department_id or '' }}">
+    <input type="hidden" name="surgery_id" value="{{ surgery_id or '' }}">
+    <input type="hidden" name="is_contaminated" id="is_contaminated" value="{{ request.query_params.get('is_contaminated','0') }}">
+    <input type="hidden" name="pending_item_ids" id="pending_item_ids" value="">
+    <input type="hidden" name="pending_set_instance_ids" id="pending_set_instance_ids" value="">
+    <input type="hidden" name="pending_manual_items" id="pending_manual_items" value="">
+
+    <div class="or-card">
+      <div class="or-top-grid">
+        <div>
+          <div class="or-label">현재 방</div>
+          <div class="room-box">{{ room_no }}번방</div>
+        </div>
+
+        <div>
+          <div class="or-label">오염 여부</div>
+          <div class="choice-row">
+            <button type="button" class="choice-btn contam-toggle {% if request.query_params.get('is_contaminated','0') != '1' %}active{% endif %}" data-value="0">일반</button>
+            <button type="button" class="choice-btn warn contam-toggle {% if request.query_params.get('is_contaminated','0') == '1' %}active{% endif %}" data-value="1">오염</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="or-label">차수</div>
+          <select name="surgery_order" id="surgery_order" class="inline-select">
+            {% for i in range(1,11) %}
+            <option value="{{ i }}" {% if request.query_params.get('surgery_order','1') == i|string %}selected{% endif %}>{{ i }}차</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="or-subgrid section-gap">
+        <div>
+          <div class="or-label">과 선택</div>
+          <div class="choice-row">
+            {% for dept in departments %}
+              <a class="choice-btn {% if department_id == dept.id %}active{% endif %}" href="/or-use?department_id={{ dept.id }}&surgery_id=&surgery_order={{ request.query_params.get('surgery_order','1') }}&is_contaminated={{ request.query_params.get('is_contaminated','0') }}">{{ dept.name }}</a>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div>
+          <div class="or-label">수술명 선택</div>
+          <div class="choice-row">
+            {% for s in surgeries %}
+              <a class="choice-btn {% if surgery_id == s.id %}active{% endif %}" href="/or-use?department_id={{ department_id }}&surgery_id={{ s.id }}&surgery_order={{ request.query_params.get('surgery_order','1') }}&is_contaminated={{ request.query_params.get('is_contaminated','0') }}">{{ s.name }}</a>
+            {% endfor %}
+          </div>
+          <div class="manual-row" style="margin-top:8px;">
+            <input type="text" name="manual_surgery_name" id="manual_surgery_name" value="{{ request.query_params.get('manual_surgery_name','') }}" placeholder="등록되지 않은 수술명 직접 입력">
+            <button type="button" class="choice-btn active" id="apply-manual-surgery">적용</button>
+          </div>
+        </div>
+      </div>
+
+      {% if defaults %}
+      <div class="section-gap">
+        <div class="or-label">기본 기구</div>
+        <div class="choice-row">
+          {% for d in defaults %}
+            <button type="button"
+                    class="choice-btn green default-item"
+                    data-item-id="{{ d.item_id }}"
+                    data-item-name="{{ d.item.name }}"
+                    data-item-kind="{{ d.item.kind }}">
+              {{ d.item.name }}
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="or-card">
+      <div class="choice-row">
+        <button type="button" class="choice-btn tab-btn active" data-target="set-panel">세트</button>
+        <button type="button" class="choice-btn tab-btn" data-target="single-panel">싱글기구</button>
+        <button type="button" class="choice-btn warn tab-btn" data-target="manual-panel">직접입력</button>
+      </div>
+
+      <div id="set-panel" class="stack-sm section-gap tab-panel">
+        <div class="or-label">세트 분류</div>
+        <div class="choice-row">
+          {% for cat in ['GS','NS','OS','일반'] %}
+            <button type="button" class="choice-btn category-btn {% if loop.first %}active{% endif %}" data-panel="set" data-category="{{ cat }}">{{ cat }}</button>
+          {% endfor %}
+        </div>
+        <div class="choice-row section-gap">
+          {% for item in set_items or [] %}
+            <button type="button"
+                    class="choice-btn green library-item {% if item.category != 'GS' %}hidden{% endif %}"
+                    data-panel="set"
+                    data-category="{{ item.category or '일반' }}"
+                    data-item-id="{{ item.id }}"
+                    data-item-kind="set"
+                    data-item-name="{{ item.name }}">
+              {{ item.name }}
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div id="single-panel" class="stack-sm section-gap tab-panel hidden">
+        <div class="or-label">싱글기구 분류</div>
+        <div class="choice-row">
+          {% for cat in ['GS','NS','OS','일반'] %}
+            <button type="button" class="choice-btn category-btn {% if loop.first %}active{% endif %}" data-panel="single" data-category="{{ cat }}">{{ cat }}</button>
+          {% endfor %}
+        </div>
+        <div class="choice-row section-gap">
+          {% for item in single_items or [] %}
+            <button type="button"
+                    class="choice-btn library-item {% if item.category != 'GS' %}hidden{% endif %}"
+                    data-panel="single"
+                    data-category="{{ item.category or '일반' }}"
+                    data-item-id="{{ item.id }}"
+                    data-item-kind="instrument"
+                    data-item-name="{{ item.name }}">
+              {{ item.name }}
+            </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div id="manual-panel" class="stack-sm section-gap tab-panel hidden">
+        <div class="or-label">직접 입력</div>
+        <div class="manual-row">
+          <input type="text" id="manual_item_input" placeholder="기구 이름 입력 후 Enter 또는 추가">
+          <button type="button" class="btn-solid btn-save" id="add-manual-item">추가</button>
+        </div>
+      </div>
+
+      <div id="instance-box" class="instance-box section-gap hidden">
+        <div class="instance-title" id="instance-title">세트 번호 선택</div>
+        <div id="instance-wrap" class="choice-row"></div>
+        <div id="instance-note" class="mini-note">세트 이름만 저장하는 것이 아니라 몇 번 세트를 쓸지 선택한다.</div>
+      </div>
+
+      <div class="pending-box section-gap">
+        <div class="or-label">선택 중 기구</div>
+        <div id="pending-empty" class="mini-note">아직 선택된 기구 없음</div>
+        <div id="pending-wrap" class="chip-wrap"></div>
+        <div class="choice-row" style="margin-top:10px;">
+          <button type="button" class="btn-solid btn-clear" id="clear-pending">전체 비우기</button>
+          <button type="button" class="btn-solid btn-save" id="submit-pending">선택 기구 등록</button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div class="inuse-box">
+    <div class="or-label">현재 사용중</div>
+    {% if grouped_records %}
+      {% for key, records in grouped_records.items() %}
+      <div class="or-card" style="padding:12px; margin:0 0 10px 0;">
+        <div class="current-head">
+          <div>
+            <div class="current-title">{{ records[0].room_no }}번방 / {{ records[0].surgery_order }}차 / {{ records[0].department }} / {{ records[0].surgery_name }}</div>
+            {% if records[0].is_contaminated %}
+            <div class="contam-badge inuse-contam-badge">☣ 오염 수술</div>
+            {% else %}
+            <div class="mini-note inuse-normal-label">오염 수술 아님</div>
+            {% endif %}
+          </div>
+          <form method="post" action="/or-use/return-case">
+            <input type="hidden" name="room_no" value="{{ records[0].room_no }}">
+            <input type="hidden" name="surgery_order" value="{{ records[0].surgery_order }}">
+            <button type="submit" class="btn-solid btn-all">전체 멸균 반납</button>
+          </form>
+        </div>
+        <form method="post" action="/or-use/return-selected" id="return-form-{{ key }}">
+          <input type="hidden" name="record_ids" id="selected_ids_{{ key }}">
+          <div class="choice-row">
+            {% for r in records %}
+            <button type="button"
+                    class="item-btn inuse-item {% if r.set_instance and r.set_instance.memo %}memo-strong warn-bg{% endif %}"
+                    data-key="{{ key }}"
+                    data-id="{{ r.id }}"
+                    data-memo="{% if r.set_instance and r.set_instance.memo %}{{ r.set_instance.memo }}{% endif %}"
+                    data-name="{% if r.set_instance %}{{ r.item.name }} #{{ r.set_instance.serial_no }}{% else %}{{ r.item.name }}{% endif %}">
+              <span class="item-main">
+                <span class="item-text">
+                  <span class="item-name">
+                    {% if r.set_instance %}
+                      {{ r.item.name }} #{{ r.set_instance.serial_no }}
+                    {% else %}
+                      {{ r.item.name }}
+                    {% endif %}
+                  </span>
+                  <span class="item-badges">
+                    {% if r.is_contaminated %}
+                      <span class="badge-inline badge-contam">☣ 오염</span>
+                    {% endif %}
+                    {% if r.set_instance and r.set_instance.memo %}
+                      <span class="badge-inline badge-memo">⚠ 메모</span>
+                    {% endif %}
+                    {% if r.is_urgent %}
+                      <span class="badge-inline" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;">🚨 긴급</span>
+                    {% endif %}
+                  </span>
+                </span>
+                {% if r.set_instance and r.set_instance.memo %}
+                  <span class="item-memo-line">{{ r.set_instance.memo }}</span>
+                {% endif %}
+              </span>
+            </button>
+            {% endfor %}
+          </div>
+          <div class="choice-row" style="margin-top:10px;">
+            <button type="button" class="btn-solid btn-return" onclick="submitReturn('{{ key }}')">선택 반납</button>
+            <button type="button" class="btn-solid btn-wash" onclick="submitWash('{{ key }}')">선택 세척</button>
+            <button type="button" class="btn-solid btn-urgent" onclick="submitUrgent('{{ key }}')">긴급 멸균요청</button>
+          </div>
+          <div class="mini-note" style="margin-top:8px;">메모가 있는 기구는 버튼 안에 메모 내용이 바로 보인다.</div>
+        </form>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="mini-note">현재 사용중 없음</div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  const pending = [];
+  const selectedMap = {};
+  const setInstanceMap = {{ set_instance_map_json | safe }};
+
+  function syncPendingFields(){
+    const itemIds = pending.filter(x => x.type === 'id').map(x => x.value);
+    const setInstanceIds = pending.filter(x => x.type === 'set_instance').map(x => x.value);
+    const manuals = pending.filter(x => x.type === 'manual').map(x => x.value);
+    document.getElementById('pending_item_ids').value = itemIds.join(',');
+    document.getElementById('pending_set_instance_ids').value = setInstanceIds.join(',');
+    document.getElementById('pending_manual_items').value = manuals.join('|');
+  }
+
+  function renderPending(){
+    const wrap = document.getElementById('pending-wrap');
+    const empty = document.getElementById('pending-empty');
+
+    wrap.innerHTML = '';
+
+    if(pending.length === 0){
+      empty.style.display = 'block';
+    }else{
+      empty.style.display = 'none';
+
+      pending.forEach((item, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip' + (item.warn ? ' warn' : '');
+        chip.innerHTML = `<span>${item.label}</span><span class="x" data-idx="${idx}">×</span>`;
+
+        chip.querySelector('.x').addEventListener('click', () => {
+          pending.splice(idx, 1);
+          renderPending();
+        });
+
+        wrap.appendChild(chip);
+      });
+    }
+
+    syncPendingFields();
+  }
+
+  function addPending(obj){
+    const exists = pending.some(x => x.type === obj.type && String(x.value) === String(obj.value));
+    if(exists) return;
+
+    pending.push(obj);
+    renderPending();
+  }
+
+  function showInstancePicker(itemId, itemName){
+    const box = document.getElementById('instance-box');
+    const title = document.getElementById('instance-title');
+    const wrap = document.getElementById('instance-wrap');
+    const list = setInstanceMap[itemId] || [];
+
+    title.textContent = `${itemName} 번호 선택`;
+    wrap.innerHTML = '';
+
+    list.forEach(si => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'instance-card' + (si.memo ? ' warn' : '') + (si.is_available ? '' : ' disabled-like');
+      btn.innerHTML = `
+        <div class="instance-top">
+          <span>${si.label}</span>
+          ${si.memo ? '<span class="badge-inline badge-memo">⚠ 메모</span>' : ''}
+          ${!si.is_available ? '<span class="badge-inline" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;">제외</span>' : ''}
+        </div>
+        ${si.memo ? `<div class="instance-memo">${si.memo}</div>` : ''}
+      `;
+
+      btn.addEventListener('click', () => {
+        addPending({
+          type: 'set_instance',
+          value: si.id,
+          label: `${itemName} ${si.label}`,
+          warn: !!si.memo,
+        });
+
+        if(si.memo){
+          alert(`${itemName} ${si.label}\n\n메모: ${si.memo}`);
+        }
+      });
+
+      wrap.appendChild(btn);
+    });
+
+    if(list.length === 0){
+      const note = document.createElement('div');
+      note.className = 'mini-note';
+      note.textContent = '등록된 세트 번호 없음';
+      wrap.appendChild(note);
+    }
+
+    box.classList.remove('hidden');
+  }
+
+  document.querySelectorAll('.default-item, .library-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const kind = btn.dataset.itemKind;
+
+      if(kind === 'set'){
+        showInstancePicker(btn.dataset.itemId, btn.dataset.itemName);
+      }else{
+        addPending({
+          type:'id',
+          value:btn.dataset.itemId,
+          label:btn.dataset.itemName
+        });
+      }
+    });
+  });
+
+  function addManual(){
+    const input = document.getElementById('manual_item_input');
+    const value = input.value.trim();
+
+    if(!value) return;
+
+    addPending({
+      type:'manual',
+      value:value,
+      label:value
+    });
+
+    input.value = '';
+    input.focus();
+  }
+
+  document.getElementById('add-manual-item').addEventListener('click', addManual);
+
+  document.getElementById('manual_item_input').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      addManual();
+    }
+  });
+
+  document.getElementById('clear-pending').addEventListener('click', () => {
+    pending.splice(0, pending.length);
+    renderPending();
+  });
+
+  document.getElementById('submit-pending').addEventListener('click', () => {
+    if(pending.length === 0){
+      alert('선택된 기구 없음');
+      return;
+    }
+    document.getElementById('register-form').submit();
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      document.getElementById(btn.dataset.target).classList.remove('hidden');
+    });
+  });
+
+  document.querySelectorAll('.category-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const panel = btn.dataset.panel;
+      const cat = btn.dataset.category;
+
+      document.querySelectorAll(`.category-btn[data-panel="${panel}"]`).forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.querySelectorAll(`.library-item[data-panel="${panel}"]`).forEach(item => {
+        item.classList.toggle('hidden', item.dataset.category !== cat);
+      });
+    });
+  });
+
+  document.querySelectorAll('.contam-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.contam-toggle').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const value = btn.dataset.value;
+      document.getElementById('is_contaminated').value = value;
+
+      const isContam = value === '1';
+
+      document.querySelectorAll('.inuse-item').forEach(item => {
+        const badgeWrap = item.querySelector('.item-badges');
+        if(!badgeWrap) return;
+
+        let contamBadge = badgeWrap.querySelector('.badge-contam');
+
+        if(isContam){
+          if(!contamBadge){
+            contamBadge = document.createElement('span');
+            contamBadge.className = 'badge-inline badge-contam';
+            contamBadge.textContent = '☣ 오염';
+            badgeWrap.insertBefore(contamBadge, badgeWrap.firstChild);
+          }
+        }else{
+          if(contamBadge) contamBadge.remove();
+        }
+      });
+
+      document.querySelectorAll('.inuse-contam-badge').forEach(b => b.style.display = isContam ? 'inline-flex' : 'none');
+      document.querySelectorAll('.inuse-normal-label').forEach(b => b.style.display = isContam ? 'none' : 'block');
+    });
+  });
+
+  document.getElementById('apply-manual-surgery').addEventListener('click', () => {
+    const manual = document.getElementById('manual_surgery_name').value.trim();
+    const params = new URLSearchParams(window.location.search);
+
+    params.set('department_id', '{{ department_id or "" }}');
+    params.set('surgery_order', document.getElementById('surgery_order').value || '1');
+    params.set('is_contaminated', document.getElementById('is_contaminated').value || '0');
+
+    if(manual){
+      params.set('manual_surgery_name', manual);
+      params.delete('surgery_id');
+    }
+
+    window.location.href = '/or-use?' + params.toString();
+  });
+
+  document.querySelectorAll('.inuse-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      const id = btn.dataset.id;
+
+      if(!selectedMap[key]){
+        selectedMap[key] = new Set();
+      }
+
+      if(selectedMap[key].has(id)){
+        selectedMap[key].delete(id);
+        btn.classList.remove('selected');
+      }else{
+        selectedMap[key].add(id);
+        btn.classList.add('selected');
+      }
+    });
+  });
+
+  function submitReturn(key){
+    if(!selectedMap[key] || selectedMap[key].size === 0){
+      alert('선택된 기구 없음');
+      return;
+    }
+
+    document.getElementById('selected_ids_' + key).value = Array.from(selectedMap[key]).join(',');
+    document.getElementById('return-form-' + key).submit();
+  }
+
+  function submitWash(key){
+    if(!selectedMap[key] || selectedMap[key].size === 0){
+      alert('선택된 기구 없음');
+      return;
+    }
+
+    const form = document.getElementById('return-form-' + key);
+    form.action = '/or-use/wash-selected';
+    document.getElementById('selected_ids_' + key).value = Array.from(selectedMap[key]).join(',');
+    form.submit();
+  }
+
+  function submitUrgent(key){
+    if(!selectedMap[key] || selectedMap[key].size === 0){
+      alert('선택된 기구 없음');
+      return;
+    }
+
+    const form = document.getElementById('return-form-' + key);
+    form.action = '/or-use/urgent-selected';
+    document.getElementById('selected_ids_' + key).value = Array.from(selectedMap[key]).join(',');
+    form.submit();
+  }
+
+  renderPending();
+
+  function updateClock(){
+    const el = document.getElementById('currentTime');
+    if(!el) return;
+    const now = new Date();
+    const y=now.getFullYear(), mo=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0');
+    const h=String(now.getHours()).padStart(2,'0'), mi=String(now.getMinutes()).padStart(2,'0'), s=String(now.getSeconds()).padStart(2,'0');
+    el.textContent = `${y}-${mo}-${d} ${h}:${mi}:${s}`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+</script>
+{% endblock %}

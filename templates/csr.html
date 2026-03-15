@@ -1,0 +1,560 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .head-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+  .head-tools form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .search{height:42px;border:1px solid #cbd5e1;border-radius:12px;padding:0 12px;min-width:220px;background:#fff}
+
+  .machine-grid{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:8px;margin-bottom:12px}
+  .machine-card{background:#fff;border:1px solid #d8e0ea;border-radius:14px;padding:10px 12px;min-height:72px}
+  .machine-card .m-name{font-size:16px;font-weight:800;margin-bottom:4px}
+  .machine-card .m-status{font-size:16px;font-weight:800;margin-bottom:2px}
+  .machine-card .m-meta{font-size:12px;color:#667085;line-height:1.35}
+  .machine-card.busy{background:#eff6ff}
+  .machine-card.idle{background:#f0fdf4}
+  .machine-card.over{background:#fef2f2}
+
+  .bulk-bar{
+    position:sticky;top:8px;z-index:40;background:#fff;border:1px solid #d8e0ea;border-radius:14px;
+    padding:10px 12px;display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;
+    box-shadow:0 1px 2px rgba(0,0,0,.04)
+  }
+  .bulk-bar.show{display:flex}
+  .bulk-count{font-weight:800;margin-right:6px;font-size:15px;color:#0f172a}
+  .bulk-help{font-size:13px;color:#64748b}
+  .bulk-bar button{
+    height:38px;border-radius:12px;padding:0 12px;background:#fff;color:#1e3a8a;border:1px solid #bcd2ff;
+    font-weight:800;cursor:pointer
+  }
+  .bulk-bar button:hover{background:#f8fbff}
+  .bulk-bar .primary{background:#3b82f6;color:#fff;border-color:#3b82f6}
+  .bulk-bar .neutral{background:#fff;color:#1e3a8a;border-color:#bcd2ff}
+  .bulk-bar .clear{background:#f8fafc;color:#475569;border-color:#cbd5e1}
+
+  .group{margin-bottom:10px}
+  .group-head{
+    display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;border:1px solid #d8e0ea;
+    border-radius:14px;padding:10px 12px;margin-bottom:6px
+  }
+  .group-title{font-size:16px;font-weight:800}
+  .group-actions{display:flex;gap:8px;align-items:center}
+  .small-btn{height:34px;padding:0 10px;border:none;border-radius:10px;background:#e2e8f0;font-weight:800;cursor:pointer}
+
+  .cards{display:flex;flex-direction:column;gap:6px}
+
+  .record{
+    display:grid;grid-template-columns:40px 1.3fr 1fr 0.95fr;gap:10px;align-items:center;background:#fff;border:1px solid #d8e0ea;
+    border-radius:14px;padding:8px 10px;border-left:8px solid #cbd5e1
+  }
+  .record.return{border-left-color:var(--s-return)}
+  .record.receive{border-left-color:var(--s-receive)}
+  .record.wash{border-left-color:var(--s-wash)}
+  .record.washdone{border-left-color:var(--s-washdone)}
+  .record.ster{border-left-color:var(--s-ster)}
+  .record.sterdone{border-left-color:var(--s-sterdone)}
+  .record.out{border-left-color:var(--s-out)}
+
+  .rec-check{
+    width:22px;
+    height:22px;
+    cursor:pointer;
+  }
+  .rec-check:disabled{
+    opacity:.35;
+    cursor:not-allowed;
+  }
+
+  .rec-main{min-width:0}
+  .name-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .rec-name{font-weight:800;font-size:15px}
+  .meta{font-size:12px;color:#667085;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .pill.state-return{background:#f8fafc;color:#475569;border:1px solid #cbd5e1}
+  .pill.state-receive{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+  .pill.state-wash{background:#ecfeff;color:#0f766e;border:1px solid #99f6e4}
+  .pill.state-washdone{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+  .pill.state-ster{background:#fff7ed;color:#c2410c;border:1px solid #fdba74}
+  .pill.state-sterdone{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
+  .pill.state-out{background:#faf5ff;color:#7c3aed;border:1px solid #ddd6fe}
+
+  .time-col{font-size:12px;line-height:1.45;color:#334155}
+  .timer{font-size:16px;font-weight:800;margin-top:2px}
+  .timer.over{color:#dc2626}
+
+  .action-col{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+  .action-col button{height:36px;padding:0 10px;border:none;border-radius:10px;font-weight:800;cursor:pointer}
+  .toggle{background:#f3f4f6}
+  .next{background:#2563eb;color:#fff}
+
+  .readonly-note{
+    background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-weight:700
+  }
+
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(15,23,42,.42);display:none;align-items:center;justify-content:center;z-index:100
+  }
+  .modal-backdrop.show{display:flex}
+  .modal{background:#fff;border-radius:16px;padding:16px;width:min(560px,92vw);border:1px solid #d8e0ea}
+  .modal h3{margin:0 0 12px}
+  .machine-picks{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .pick{
+    border:1px solid #cbd5e1;background:#fff;border-radius:12px;padding:10px;text-align:left;cursor:pointer;font-weight:800
+  }
+  .pick.active{border-color:#2563eb;background:#eff6ff}
+  .rowx{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .rowx input{height:40px;border:1px solid #cbd5e1;border-radius:10px;padding:0 10px;width:140px}
+
+  .record.out,
+  .record.release{
+    background:#f3f4f6 !important;
+    border-left-color:#9ca3af !important;
+    opacity:.8;
+  }
+
+  .released-wrapper{
+    margin-top:6px;
+    border-top:none;
+    border-bottom:1px dashed #cbd5e1;
+    padding-bottom:8px;
+    margin-bottom:10px;
+  }
+
+  .release-toggle{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    margin-top:4px;
+    margin-bottom:6px;
+    font-size:12px;
+    font-weight:800;
+    cursor:pointer;
+    color:#475569;
+    background:#f8fafc;
+    border:1px solid #d8e0ea;
+    border-radius:999px;
+    padding:6px 10px;
+    user-select:none;
+  }
+
+  .released-container{
+    display:none;
+    margin-top:2px;
+  }
+  .released-container.show{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+
+  @media (max-width: 1200px){
+    .machine-grid{grid-template-columns:repeat(2,minmax(220px,1fr))}
+  }
+  @media (max-width: 900px){
+    .head-tools{justify-content:flex-start}
+    .machine-grid{grid-template-columns:1fr}
+    .record{grid-template-columns:40px 1fr;gap:8px}
+    .time-col,.action-col{grid-column:2 / -1}
+    .action-col{justify-content:flex-start}
+    .rec-name{font-size:14px}
+    .timer{font-size:15px}
+  }
+</style>
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ 'CSR 현황 조회' if readonly else 'CSR 처리' }}</h1>
+  </div>
+  <div class="head-tools">
+    <div id="currentTime" class="current-time"></div>
+    <form method="get" action="{{ '/csr-view' if readonly else '/csr' }}">
+      <input class="search" type="text" name="q" value="{{q}}" placeholder="세트명 검색">
+      <button class="btn secondary" type="submit">검색</button>
+      <a class="btn secondary" href="{{ '/csr-view' if readonly else '/csr' }}">새로고침</a>
+    </form>
+  </div>
+</div>
+
+<div class="machine-grid">
+  {% for m in machine_board %}
+    <div class="machine-card {{ 'busy' if m.status=='사용중' else 'idle' }}" {% if m.due_at %}data-due-at="{{m.due_at}}"{% endif %}>
+      <div class="m-name">{{m.name}}</div>
+      <div class="m-status">{{m.status}}</div>
+      <div class="m-meta">
+        {% if m.status=='사용중' %}
+          {% if m.item_name %}{{m.item_name}}<br>{% endif %}
+          종료예정 <span class="due-text">{{m.due_at[:16].replace('T',' ') if m.due_at else '-'}}</span> · <span class="machine-timer">-</span>
+        {% else %}
+          기본 {{m.duration}}분
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+{% if readonly %}<div class="readonly-note">OR 로그인 상태이므로 CSR 처리 버튼은 보이지 않고 조회만 가능하다.</div>{% endif %}
+
+{% if not readonly %}
+<div id="bulkBar" class="bulk-bar">
+  <span class="bulk-count"><span id="selectedCount">0</span>건 선택됨</span>
+  <button class="neutral" onclick="submitBulk('receive')">반입확인</button>
+  <button class="primary" onclick="openWashModal()">세척 시작</button>
+  <button class="neutral" onclick="submitBulk('wash_done')">세척완료</button>
+  <button class="primary" onclick="openSterModal()">멸균 시작</button>
+  <button class="neutral" onclick="submitBulk('ster_done')">멸균완료</button>
+  <button class="neutral" onclick="submitBulk('release')">불출</button>
+  <button class="clear" onclick="clearSelection()">선택해제</button>
+  <span class="bulk-help">선택 중에는 자동 새로고침이 멈춘다</span>
+</div>
+
+<form id="bulkForm" method="post" action="/csr/bulk">
+  <input type="hidden" name="action" id="bulkAction">
+  <input type="hidden" name="record_ids" id="bulkRecordIds">
+  <input type="hidden" name="machine_key" id="bulkMachineKey">
+  <input type="hidden" name="minutes" id="bulkMinutes" value="0">
+</form>
+{% endif %}
+
+{% for (room_no, surgery_order), recs in groups.items() %}
+<div class="group">
+  <div class="group-head">
+    <div>
+      <div class="group-title">{{room_no}}번방 / {{surgery_order}}차 / {{recs|length}}건</div>
+      <div class="subtle">긴급 항목이 먼저 표시된다</div>
+    </div>
+    {% if not readonly %}
+    <div class="group-actions">
+      <button type="button" class="small-btn" onclick="toggleGroup('{{room_no}}-{{surgery_order}}', true)">전체선택</button>
+      <button type="button" class="small-btn" onclick="toggleGroup('{{room_no}}-{{surgery_order}}', false)">해제</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="cards">
+    {% for r in recs %}
+      {% set cls = 'return' if r.status=='반납' else 'receive' if r.status=='반입확인' else 'wash' if r.status=='세척중' else 'washdone' if r.status=='세척완료' else 'ster' if r.status=='멸균중' else 'sterdone' if r.status=='멸균완료' else 'out' %}
+      <div class="record {{cls}}" data-status="{{r.status}}">
+        {% if not readonly %}
+          {% if cls == 'out' %}
+            <input class="rec-check grp-{{room_no}}-{{surgery_order}}" type="checkbox" value="{{r.id}}" disabled>
+          {% else %}
+            <input class="rec-check grp-{{room_no}}-{{surgery_order}}" type="checkbox" value="{{r.id}}">
+          {% endif %}
+        {% else %}
+          <div></div>
+        {% endif %}
+
+        <div class="rec-main">
+          <div class="name-row">
+            <div class="rec-name">{{ r.item.name }}{% if r.set_instance %} #{{ r.set_instance.serial_no }}{% endif %}</div>
+            {% if r.is_urgent %}<span class="pill urgent">⚡ 긴급</span>{% endif %}
+            {% if r.is_contaminated %}<span class="pill infect">☣ 감염</span>{% endif %}
+            <span class="pill state-{{cls}}">{{r.status}}</span>
+          </div>
+          <div class="meta">{{r.room_no}}번방 / {{r.surgery_order}}차 · {{r.department}} · {{r.surgery_name}}</div>
+        </div>
+
+        <div class="time-col">
+          <div>의뢰 {{ (r.returned_at or r.used_at).astimezone().strftime('%H:%M') if (r.returned_at or r.used_at) else '-' }}</div>
+          <div>{% if r.machine_name %}{{r.machine_name}}{% else %}-{% endif %}</div>
+          <div>{% if r.process_started_at %}시작 {{ r.process_started_at.astimezone().strftime('%H:%M') }} · 종료예정 <span class="due-text">{{ r.process_due_at.astimezone().strftime('%H:%M') if r.process_due_at else '-' }}</span>{% else %}-{% endif %}</div>
+          <div class="timer" {% if r.process_due_at %}data-due-at="{{r.process_due_at.isoformat()}}"{% endif %}></div>
+        </div>
+
+        <div class="action-col">
+          {% if not readonly %}
+            <button class="toggle" type="button" onclick="singleAction('{{r.id}}','toggle_urgent')">{{ '긴급 해제' if r.is_urgent else '긴급 설정' }}</button>
+            <button class="toggle" type="button" onclick="singleAction('{{r.id}}','toggle_contam')">{{ '감염 해제' if r.is_contaminated else '감염 설정' }}</button>
+            {% if r.status=='반납' %}<button class="next" type="button" onclick="submitBulk('receive',['{{r.id}}'])">반입확인</button>{% endif %}
+            {% if r.status=='반입확인' %}<button class="next" type="button" onclick="openWashModal(['{{r.id}}'])">세척 시작</button>{% endif %}
+            {% if r.status=='세척중' %}<button class="next" type="button" onclick="submitBulk('wash_done',['{{r.id}}'])">세척완료</button>{% endif %}
+            {% if r.status=='세척완료' %}<button class="next" type="button" onclick="openSterModal(['{{r.id}}'])">멸균 시작</button>{% endif %}
+            {% if r.status=='멸균중' %}<button class="next" type="button" onclick="submitBulk('ster_done',['{{r.id}}'])">멸균완료</button>{% endif %}
+            {% if r.status=='멸균완료' %}<button class="next" type="button" onclick="submitBulk('release',['{{r.id}}'])">불출</button>{% endif %}
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
+{% if not readonly %}
+<div id="washModal" class="modal-backdrop">
+  <div class="modal">
+    <h3>세척 시작</h3>
+    <div class="machine-picks">
+      {% for m in wash_machines %}
+      <button type="button" class="pick" data-key="{{m.machine_key}}" data-min="{{m.duration_minutes}}" data-target="wash">{{m.machine_name}}<br><span class="subtle">기본 {{m.duration_minutes}}분</span></button>
+      {% endfor %}
+    </div>
+    <div class="rowx"><label><input type="checkbox" id="handMode"> 손세척 직접시간</label><input id="washMinutes" type="number" min="1" value="10"></div>
+    <div class="rowx" style="justify-content:flex-end"><button class="small-btn" type="button" onclick="closeModals()">취소</button><button class="btn warn" type="button" onclick="confirmWash()">확인</button></div>
+  </div>
+</div>
+
+<div id="sterModal" class="modal-backdrop">
+  <div class="modal">
+    <h3>멸균 시작</h3>
+    <div class="machine-picks">
+      {% for m in ster_machines %}
+      <button type="button" class="pick" data-key="{{m.machine_key}}" data-min="{{m.duration_minutes}}" data-target="ster">{{m.machine_name}}<br><span class="subtle">기본 {{m.duration_minutes}}분</span></button>
+      {% endfor %}
+    </div>
+    <div class="rowx"><div class="subtle">관리자 화면에서 기본 시간을 바꿀 수 있다</div></div>
+    <div class="rowx" style="justify-content:flex-end"><button class="small-btn" type="button" onclick="closeModals()">취소</button><button class="btn warn" type="button" onclick="confirmSter()">확인</button></div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+let manualSelection = [];
+
+function updateClock(){
+  const el = document.getElementById('currentTime');
+  if(!el) return;
+  const now = new Date();
+  const y=now.getFullYear(), mo=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0');
+  const h=String(now.getHours()).padStart(2,'0'), mi=String(now.getMinutes()).padStart(2,'0'), s=String(now.getSeconds()).padStart(2,'0');
+  el.textContent = `${y}-${mo}-${d} ${h}:${mi}:${s}`;
+}
+
+function idsFromChecks(){
+  return Array.from(document.querySelectorAll('.rec-check:checked'))
+    .filter(x=>!x.disabled)
+    .map(x=>x.value);
+}
+
+function currentIds(optionalIds){
+  return optionalIds && optionalIds.length ? optionalIds : idsFromChecks();
+}
+
+function getSelectedStatuses(optionalIds){
+  let boxes = [];
+  if(optionalIds && optionalIds.length){
+    boxes = optionalIds
+      .map(id => document.querySelector(`.rec-check[value="${id}"]`))
+      .filter(Boolean)
+      .filter(x => !x.disabled);
+  } else {
+    boxes = Array.from(document.querySelectorAll('.rec-check:checked')).filter(x=>!x.disabled);
+  }
+
+  return [...new Set(
+    boxes.map(x => x.closest('.record')?.dataset.status).filter(Boolean)
+  )];
+}
+
+function canRunBulk(action, optionalIds){
+  const statuses = getSelectedStatuses(optionalIds);
+  if(statuses.length !== 1) return false;
+  const s = statuses[0];
+  if(action === 'receive' && s !== '반납') return false;
+  if(action === 'wash_start' && s !== '반입확인') return false;
+  if(action === 'wash_done' && s !== '세척중') return false;
+  if(action === 'ster_start' && s !== '세척완료') return false;
+  if(action === 'ster_done' && s !== '멸균중') return false;
+  if(action === 'release' && s !== '멸균완료') return false;
+  return true;
+}
+
+function updateBulkBar(){
+  const n = idsFromChecks().length;
+  const bar=document.getElementById('bulkBar');
+  if(bar){
+    bar.classList.toggle('show', n>0);
+    document.getElementById('selectedCount').textContent=n;
+  }
+}
+
+function toggleGroup(group, on){
+  document.querySelectorAll('.grp-'+group).forEach(x=>{
+    if(!x.disabled) x.checked = on;
+  });
+  updateBulkBar();
+}
+
+function clearSelection(){
+  document.querySelectorAll('.rec-check').forEach(x=>x.checked=false);
+  updateBulkBar();
+}
+
+function submitBulk(action, optionalIds){
+  const ids = currentIds(optionalIds);
+  if(!ids.length){
+    alert('선택된 항목 없음');
+    return;
+  }
+  if(!canRunBulk(action, optionalIds)){
+    alert('같은 단계의 기구만 선택해서 진행할 수 있다.');
+    return;
+  }
+  document.getElementById('bulkAction').value=action;
+  document.getElementById('bulkRecordIds').value=ids.join(',');
+  document.getElementById('bulkMachineKey').value='';
+  document.getElementById('bulkMinutes').value='0';
+  document.getElementById('bulkForm').submit();
+}
+
+function singleAction(id, action){ submitBulk(action, [id]); }
+
+function openWashModal(optionalIds){
+  manualSelection=currentIds(optionalIds);
+  if(!manualSelection.length){
+    alert('선택된 항목 없음');
+    return;
+  }
+  if(!canRunBulk('wash_start', optionalIds)){
+    alert('반입확인 상태의 기구만 세척 시작할 수 있다.');
+    return;
+  }
+  document.getElementById('washModal').classList.add('show');
+}
+
+function openSterModal(optionalIds){
+  manualSelection=currentIds(optionalIds);
+  if(!manualSelection.length){
+    alert('선택된 항목 없음');
+    return;
+  }
+  if(!canRunBulk('ster_start', optionalIds)){
+    alert('세척완료 상태의 기구만 멸균 시작할 수 있다.');
+    return;
+  }
+  document.getElementById('sterModal').classList.add('show');
+}
+
+function closeModals(){ document.querySelectorAll('.modal-backdrop').forEach(x=>x.classList.remove('show')); }
+
+let washMachineKey='', washDefaultMin=10, sterMachineKey='', sterDefaultMin=0;
+
+document.querySelectorAll('.pick[data-target="wash"]').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.pick[data-target="wash"]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  washMachineKey=btn.dataset.key;
+  washDefaultMin=btn.dataset.min;
+}));
+
+document.querySelectorAll('.pick[data-target="ster"]').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.pick[data-target="ster"]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  sterMachineKey=btn.dataset.key;
+  sterDefaultMin=btn.dataset.min;
+}));
+
+function confirmWash(){
+  let key=washMachineKey, mins=washDefaultMin||10;
+  if(document.getElementById('handMode').checked){
+    key='handwash';
+    mins=document.getElementById('washMinutes').value||10;
+  }
+  document.getElementById('bulkAction').value='wash_start';
+  document.getElementById('bulkRecordIds').value=manualSelection.join(',');
+  document.getElementById('bulkMachineKey').value=key;
+  document.getElementById('bulkMinutes').value=mins;
+  document.getElementById('bulkForm').submit();
+}
+
+function confirmSter(){
+  if(!sterMachineKey){
+    alert('멸균 장비 선택');
+    return;
+  }
+  document.getElementById('bulkAction').value='ster_start';
+  document.getElementById('bulkRecordIds').value=manualSelection.join(',');
+  document.getElementById('bulkMachineKey').value=sterMachineKey;
+  document.getElementById('bulkMinutes').value=sterDefaultMin||0;
+  document.getElementById('bulkForm').submit();
+}
+
+function formatTimer(dueAt){
+  if(!dueAt) return {text:'', over:false};
+  const due = new Date(dueAt);
+  const now = new Date();
+  let diff=Math.floor((due-now)/1000);
+  const over=diff<0;
+  diff=Math.abs(diff);
+  const h=String(Math.floor(diff/3600)).padStart(2,'0');
+  const m=String(Math.floor((diff%3600)/60)).padStart(2,'0');
+  return {text: over?`${h}:${m} 초과`:`${h}:${m} 남음`, over};
+}
+
+function updateTimers(){
+  document.querySelectorAll('.timer[data-due-at]').forEach(el=>{
+    const t=formatTimer(el.dataset.dueAt);
+    el.textContent=t.text;
+    el.classList.toggle('over', t.over);
+  });
+
+  document.querySelectorAll('.machine-card[data-due-at]').forEach(card=>{
+    const target=card.querySelector('.machine-timer');
+    if(!target) return;
+    const t=formatTimer(card.dataset.dueAt);
+    target.textContent=t.text;
+    card.classList.toggle('over', t.over);
+  });
+}
+
+function safeAutoRefresh(){
+  if({{ 'true' if readonly else 'false' }}) return;
+  if(idsFromChecks().length) return;
+  if(document.querySelector('.modal-backdrop.show')) return;
+  window.location.reload();
+}
+
+function organizeReleased(){
+  const groups = document.querySelectorAll('.group');
+
+  groups.forEach(group=>{
+    const list = group.querySelector('.cards');
+    if(!list) return;
+
+    const items = Array.from(list.querySelectorAll('.record'));
+    const released = [];
+    const normal = [];
+
+    items.forEach(i=>{
+      if(i.classList.contains('out') || i.classList.contains('release')){
+        released.push(i);
+      }else{
+        normal.push(i);
+      }
+    });
+
+    if(released.length===0) return;
+
+    list.innerHTML = '';
+
+    normal.forEach(i=>list.appendChild(i));
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'released-wrapper';
+
+    const toggle = document.createElement('div');
+    toggle.className = 'release-toggle';
+    toggle.innerText = `불출 완료 보기 (${released.length})`;
+
+    const container = document.createElement('div');
+    container.className = 'released-container';
+
+    toggle.onclick = function(){
+      container.classList.toggle('show');
+    };
+
+    released.forEach(i=>container.appendChild(i));
+
+    wrapper.appendChild(toggle);
+    wrapper.appendChild(container);
+    list.appendChild(wrapper);
+  });
+}
+
+updateClock();
+setInterval(updateClock,1000);
+updateTimers();
+setInterval(updateTimers,1000);
+document.querySelectorAll('.rec-check').forEach(x=>x.addEventListener('change', updateBulkBar));
+updateBulkBar();
+organizeReleased();
+setInterval(safeAutoRefresh,30000);
+</script>
+{% endblock %}

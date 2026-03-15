@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SetFlow 로그인</title>
+<style>
+body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#1f2937}
+.wrap{max-width:960px;margin:40px auto;padding:20px}
+.grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}.stack{display:grid;gap:16px}.card{background:#fff;border:1px solid #d8e0ea;border-radius:18px;padding:20px}
+.title{font-size:32px;font-weight:800;margin-bottom:6px}.sub{color:#667085;margin-bottom:18px}
+.room-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:12px 0 18px}
+.room-btn{height:64px;border:2px solid #3b82f6;border-radius:14px;background:#fff;font-size:24px;font-weight:800;cursor:pointer}
+.room-btn.active{background:#3b82f6;color:#fff}.input{width:100%;height:46px;border:1px solid #cbd5e1;border-radius:12px;padding:0 12px;font-size:16px}
+.btn{height:46px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-weight:800;width:100%;cursor:pointer}.btn.gray{background:#475569}
+@media (max-width:900px){.grid{grid-template-columns:1fr}.room-grid{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">SetFlow</div>
+  <div class="sub">OR / CSR / 관리자 로그인</div>
+  <div class="grid">
+    <div class="card">
+      <h2 style="margin:0 0 12px;">수술방 입장</h2>
+      <form method="post" action="/login/or">
+        <div style="font-weight:700;margin-bottom:8px;">방 선택</div>
+        <div class="room-grid">
+          {% for i in range(1,11) %}
+          <button type="button" class="room-btn" data-room="{{i}}">{{i}}</button>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="room_no" id="room_no">
+        <div style="font-weight:700;margin:0 0 8px;">비밀번호</div>
+        <input class="input" type="password" name="pin" required>
+        <div style="height:12px"></div>
+        <button class="btn" type="submit">OR 입장</button>
+      </form>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <h2 style="margin:0 0 12px;">CSR 입장</h2>
+        <form method="post" action="/login/csr">
+          <div style="font-weight:700;margin:0 0 8px;">비밀번호</div>
+          <input class="input" type="password" name="pin" required>
+          <div style="height:12px"></div>
+          <button class="btn gray" type="submit">CSR 입장</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2 style="margin:0 0 12px;">관리자 입장</h2>
+        <form method="post" action="/login/admin">
+          <div style="font-weight:700;margin:0 0 8px;">비밀번호</div>
+          <input class="input" type="password" name="pin" required>
+          <div style="height:12px"></div>
+          <button class="btn" type="submit" style="background:#111827;">관리자 입장</button>
+        </form>
+      </div>
+      <div style="color:#667085;font-size:14px;line-height:1.6;padding:4px 2px 0">
+        OR 로그인 후에는 CSR 처리 대신 조회만 가능하다.<br>
+        CSR 로그인 후에는 반입확인, 세척, 멸균, 불출 처리가 가능하다.<br>
+        관리자 로그인 후에는 장비 시간과 사용 여부를 수정할 수 있다.
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.room-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.room-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('room_no').value = btn.dataset.room;
+  });
+});
+</script>
+</body>
+</html>

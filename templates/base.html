@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>SetFlow</title>
+  <link rel="stylesheet" href="/static/styles.css"/>
+  <script src="/static/app.js"></script>
+</head>
+<body>
+<div class="container">
+  <aside class="sidebar">
+    <div class="brand"><span class="dot"></span> <span>SetFlow</span></div>
+
+    {% if role %}
+    <div class="badges">
+      <span class="badge">{{ role|upper }}</span>
+      {% if label %}<span class="badge">{{ label }}</span>{% endif %}
+    </div>
+    {% endif %}
+
+    <nav class="nav">
+      {% if role == "or" %}
+        <div class="nav-section-title">운영</div>
+        <a href="/or-use" class="{{ 'active' if active=='or' else '' }}">OR 사용 등록</a>
+        <a href="/dashboard" class="{{ 'active' if active=='dashboard' else '' }}">현황판</a>
+        <a href="/stats" class="{{ 'active' if active=='stats' else '' }}">통계</a>
+      {% elif role == "csr" %}
+        <div class="nav-section-title">운영</div>
+        <a href="/csr" class="{{ 'active' if active=='csr' else '' }}">CSR 처리</a>
+        <a href="/dashboard" class="{{ 'active' if active=='dashboard' else '' }}">현황판</a>
+        <a href="/stats" class="{{ 'active' if active=='stats' else '' }}">통계</a>
+        <a href="/items" class="{{ 'active' if active=='items' else '' }}">기구등록</a>
+      {% elif role == "admin" %}
+        <div class="nav-section-title">관리</div>
+        <a href="/dashboard" class="{{ 'active' if active=='dashboard' else '' }}">현황판</a>
+        <a href="/stats" class="{{ 'active' if active=='stats' else '' }}">통계</a>
+        <a href="/items" class="{{ 'active' if active=='items' else '' }}">기구등록</a>
+        <a href="/admin" class="{{ 'active' if active=='admin' else '' }}">장비 설정</a>
+      {% else %}
+        <div class="nav-section-title">로그인</div>
+        <a href="/login" class="{{ 'active' if active=='login' else '' }}">로그인</a>
+      {% endif %}
+    </nav>
+
+    <div class="footer">
+      {% if role %}
+      <form method="post" action="/logout">
+        <button class="btn secondary" type="submit" style="width:100%;">로그아웃</button>
+      </form>
+      {% endif %}
+      <div class="note">
+        * 현재 정리본은 실제 연결된 화면만 남겨둔 기준 버전<br/>
+        * DB 파일: <span class="pill">data/setflow.db</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

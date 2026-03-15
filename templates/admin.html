@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">장비 설정</h1>
+    <div class="subtle">세척/멸균 기본 시간을 수정한다</div>
+  </div>
+  <div id="currentTime" class="current-time"></div>
+</div>
+<div class="card">
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="text-align:left;border-bottom:1px solid #d8e0ea"><th style="padding:10px">구분</th><th>장비</th><th>기본분</th><th>사용</th><th></th></tr></thead>
+    <tbody>
+    {% for m in machines %}
+      <tr style="border-bottom:1px solid #eef2f7">
+        <td style="padding:10px 0">{{ '세척' if m.process_type=='wash' else '멸균' }}</td>
+        <td>{{m.machine_name}}</td>
+        <td>
+          <form method="post" action="/admin/machine/update" style="display:flex;gap:8px;align-items:center">
+            <input type="hidden" name="machine_id" value="{{m.id}}">
+            <input name="duration_minutes" type="number" min="1" value="{{m.duration_minutes}}" style="height:40px;border:1px solid #cbd5e1;border-radius:10px;padding:0 10px;width:120px">
+        </td>
+        <td><input type="checkbox" name="active" value="1" {% if m.active %}checked{% endif %}></td>
+        <td><button class="btn" type="submit">저장</button></form></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

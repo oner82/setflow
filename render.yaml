@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: setflow
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /login
+    disk:
+      name: setflow-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: SETFLOW_DB_PATH
+        value: /var/data/setflow.db
+      - key: SETFLOW_SECRET
+        generateValue: true
+      - key: OR_PIN
+        value: "1234"
+      - key: CSR_PIN
+        value: "5678"
+      - key: ADMIN_PIN
+        value: "0000"

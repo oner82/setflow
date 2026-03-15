@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">통계</h1>
+    <div class="subtle">현재 등록된 기구와 처리 상태를 집계한다</div>
+  </div>
+  <div id="currentTime" class="current-time"></div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px;">
+  <div class="card"><div class="subtle">전체 기구</div><div style="font-size:28px;font-weight:800;margin-top:6px;">{{ total_items }}건</div></div>
+  <div class="card"><div class="subtle">세트</div><div style="font-size:28px;font-weight:800;margin-top:6px;">{{ total_sets }}건</div></div>
+  <div class="card"><div class="subtle">단품 기구</div><div style="font-size:28px;font-weight:800;margin-top:6px;">{{ total_instruments }}건</div></div>
+  <div class="card"><div class="subtle">오늘 사용 등록</div><div style="font-size:28px;font-weight:800;margin-top:6px;">{{ today_usage }}건</div></div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <h3 style="margin:0 0 12px 0;">처리 상태</h3>
+  <table style="width:100%;border-collapse:collapse;">
+    <thead>
+      <tr style="text-align:left;border-bottom:1px solid #d8e0ea;">
+        <th style="padding:10px 0;">상태</th>
+        <th>건수</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in status_counts %}
+      <tr style="border-bottom:1px solid #eef2f7;">
+        <td style="padding:10px 0;">{{ row.status }}</td>
+        <td>{{ row.count }}건</td>
+      </tr>
+      {% endfor %}
+      {% if not status_counts %}
+      <tr><td colspan="2" style="padding:14px 0;" class="subtle">집계할 데이터가 없다</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 12px 0;">장비 사용 현황</h3>
+  <table style="width:100%;border-collapse:collapse;">
+    <thead>
+      <tr style="text-align:left;border-bottom:1px solid #d8e0ea;">
+        <th style="padding:10px 0;">장비</th>
+        <th>상태</th>
+        <th>기본 시간</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in machine_board %}
+      <tr style="border-bottom:1px solid #eef2f7;">
+        <td style="padding:10px 0;">{{ m.name }}</td>
+        <td>{{ m.status }}</td>
+        <td>{{ m.duration }}분</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

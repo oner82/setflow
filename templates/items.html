@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">기구등록</h1>
+    <div class="subtle">등록된 세트와 단품 기구를 확인한다</div>
+  </div>
+  <div id="currentTime" class="current-time"></div>
+</div>
+
+<div class="card" style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+  <div>
+    <div style="font-weight:700;">총 {{ total_items }}건</div>
+    <div class="subtle">세트 {{ total_sets }}건 / 단품 {{ total_instruments }}건</div>
+  </div>
+  <form method="get" action="/items" style="display:flex;gap:8px;align-items:center;">
+    <input name="q" value="{{ q }}" placeholder="기구명 검색" style="height:40px;border:1px solid #cbd5e1;border-radius:10px;padding:0 12px;min-width:260px;">
+    <button class="btn" type="submit">검색</button>
+  </form>
+</div>
+
+<div class="card">
+  <table style="width:100%;border-collapse:collapse;">
+    <thead>
+      <tr style="text-align:left;border-bottom:1px solid #d8e0ea;">
+        <th style="padding:10px 0;">코드</th>
+        <th>기구명</th>
+        <th>구분</th>
+        <th>분류</th>
+        <th>보관</th>
+        <th>현재 상태</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr style="border-bottom:1px solid #eef2f7;">
+        <td style="padding:10px 0;">{{ item.code }}</td>
+        <td>{{ item.name }}</td>
+        <td>{{ '세트' if item.kind == 'set' else '단품기구' }}</td>
+        <td>{{ item.category }}</td>
+        <td>{{ item.storage }}</td>
+        <td>{{ item.status }}</td>
+      </tr>
+      {% endfor %}
+      {% if not items %}
+      <tr><td colspan="6" style="padding:14px 0;" class="subtle">조건에 맞는 기구가 없다</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
