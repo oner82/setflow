@@ -37,6 +37,13 @@
     border-radius:14px;padding:10px 12px;margin-bottom:6px
   }
   .group-title{font-size:16px;font-weight:800}
+  .group-main{min-width:0}
+  .group-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .group-inline-actions{display:none;align-items:center;gap:6px;flex-wrap:wrap}
+  .group-inline-actions.show{display:flex}
+  .group-inline-actions .inline-btn{height:30px;padding:0 10px;border:none;border-radius:999px;background:#e8f0ff;color:#1e3a8a;font-weight:800;cursor:pointer;font-size:12px}
+  .group-inline-actions .inline-btn.primary{background:#2563eb;color:#fff}
+  .group-inline-actions .inline-help{font-size:12px;color:#64748b;font-weight:700}
   .group-actions{display:flex;gap:8px;align-items:center}
   .small-btn{height:34px;padding:0 10px;border:none;border-radius:10px;background:#e2e8f0;font-weight:800;cursor:pointer}
 
@@ -217,15 +224,8 @@
 {% if not readonly %}
 <div id="bulkBar" class="bulk-bar">
   <span class="bulk-count"><span id="selectedCount">0</span>건 선택됨</span>
-  <button class="neutral" onclick="submitBulk('receive')">반입확인</button>
-  <button class="primary" onclick="openWashModal()">세척 시작</button>
-  <button class="neutral" onclick="submitBulk('wash_done')">세척완료</button>
-  <button class="primary" onclick="openSterModal()">멸균 시작</button>
-  <button class="primary" onclick="openSterLoadModal()">멸균 적재</button>
-  <button class="neutral" onclick="submitBulk('ster_done')">멸균완료</button>
-  <button class="neutral" onclick="submitBulk('release')">불출</button>
   <button class="clear" onclick="clearSelection()">선택해제</button>
-  <span class="bulk-help">선택 중에는 자동 새로고침이 멈춘다</span>
+  <span class="bulk-help">단계 버튼은 각 수술 타이틀 옆에서 바로 선택할 수 있다 · 선택 중에는 자동 새로고침이 멈춘다</span>
 </div>
 
 <form id="bulkForm" method="post" action="/csr/bulk">
@@ -239,8 +239,13 @@
 {% for (room_no, surgery_order), recs in groups.items() %}
 <div class="group">
   <div class="group-head">
-    <div>
-      <div class="group-title">{{room_no}}번방 / {{surgery_order}}차 / {{recs|length}}건</div>
+    <div class="group-main">
+      <div class="group-title-row">
+        <div class="group-title">{{room_no}}번방 / {{surgery_order}}차 / {{recs|length}}건</div>
+        {% if not readonly %}
+        <div class="group-inline-actions" data-group="{{room_no}}-{{surgery_order}}"></div>
+        {% endif %}
+      </div>
       <div class="subtle">긴급 항목이 먼저 표시된다</div>
     </div>
     {% if not readonly %}
@@ -392,6 +397,60 @@ function canRunBulk(action, optionalIds){
   return true;
 }
 
+function selectedIdsInGroup(groupKey){
+  return Array.from(document.querySelectorAll(`.grp-${groupKey}:checked`))
+    .filter(x=>!x.disabled)
+    .map(x=>x.value);
+}
+
+function groupActionButtons(ids){
+  if(!ids.length) return [];
+  const statuses = getSelectedStatuses(ids);
+  if(statuses.length !== 1) return [];
+  const s = statuses[0];
+  if(s === '반납') return [{label:'반입확인', handler:()=>submitBulk('receive', ids), primary:false}];
+  if(s === '반입확인') return [{label:'세척 시작', handler:()=>openWashModal(ids), primary:true}];
+  if(s === '세척중') return [{label:'세척완료', handler:()=>submitBulk('wash_done', ids), primary:false}];
+  if(s === '세척완료') return [
+    {label:'멸균 적재', handler:()=>openSterLoadModal(ids), primary:true},
+    {label:'멸균 시작', handler:()=>openSterModal(ids), primary:true}
+  ];
+  if(s === '멸균중') return [{label:'멸균완료', handler:()=>submitBulk('ster_done', ids), primary:false}];
+  if(s === '멸균완료') return [{label:'불출', handler:()=>submitBulk('release', ids), primary:false}];
+  return [];
+}
+
+function renderGroupInlineActions(){
+  document.querySelectorAll('.group-inline-actions').forEach(container=>{
+    const groupKey = container.dataset.group;
+    const ids = selectedIdsInGroup(groupKey);
+    container.innerHTML = '';
+    container.classList.remove('show');
+    if(!ids.length) return;
+
+    const statuses = getSelectedStatuses(ids);
+    if(statuses.length !== 1){
+      const help = document.createElement('span');
+      help.className = 'inline-help';
+      help.textContent = '같은 단계만 선택 가능';
+      container.appendChild(help);
+      container.classList.add('show');
+      return;
+    }
+
+    const buttons = groupActionButtons(ids);
+    buttons.forEach(info=>{
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `inline-btn${info.primary ? ' primary' : ''}`;
+      btn.textContent = info.label;
+      btn.onclick = info.handler;
+      container.appendChild(btn);
+    });
+    container.classList.toggle('show', buttons.length>0);
+  });
+}
+
 function updateBulkBar(){
   const n = idsFromChecks().length;
   const bar=document.getElementById('bulkBar');
@@ -399,6 +458,7 @@ function updateBulkBar(){
     bar.classList.toggle('show', n>0);
     document.getElementById('selectedCount').textContent=n;
   }
+  renderGroupInlineActions();
 }
 
 function toggleGroup(group, on){
