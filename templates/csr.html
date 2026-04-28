@@ -112,6 +112,8 @@
   .pick.active{border-color:#2563eb;background:#eff6ff}
   .machine-card .start-btn{margin-top:8px;height:30px;padding:0 10px;border:none;border-radius:9px;background:#1d4ed8;color:#fff;font-weight:800;cursor:pointer}
   .machine-card .start-btn:hover{background:#1e40af}
+  .machine-card .emergency-btn{margin-top:8px;height:30px;padding:0 10px;border:none;border-radius:9px;background:#dc2626;color:#fff;font-weight:800;cursor:pointer}
+  .machine-card .emergency-btn:hover{background:#b91c1c}
   .machine-card.clickable{cursor:pointer}
 
   .machine-list{max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
@@ -209,11 +211,14 @@
           기본 {{m.duration}}분
         {% endif %}
       </div>
-      {% if not readonly and m.process_type == 'ster' and m.loaded_count > 0 %}
+      {% if not readonly and m.process_type == 'ster' and m.loaded_count > 0 and m.active_count == 0 %}
       <form method="post" action="/csr/machine/start" onsubmit="event.stopPropagation();">
         <input type="hidden" name="machine_key" value="{{m.key}}">
         <button class="start-btn" type="submit" onclick="event.stopPropagation();">멸균시작</button>
       </form>
+      {% endif %}
+      {% if not readonly and m.process_type == 'ster' and m.active_count > 0 %}
+      <button class="emergency-btn" type="button" onclick="event.stopPropagation(); emergencyStopSter('{{m.key}}');">멸균긴급종료</button>
       {% endif %}
     </div>
   {% endfor %}
@@ -233,6 +238,11 @@
   <input type="hidden" name="record_ids" id="bulkRecordIds">
   <input type="hidden" name="machine_key" id="bulkMachineKey">
   <input type="hidden" name="minutes" id="bulkMinutes" value="0">
+</form>
+
+<form id="emergencyStopForm" method="post" action="/csr/machine/emergency-stop">
+  <input type="hidden" name="machine_key" id="emergencyMachineKey">
+  <input type="hidden" name="target_status" id="emergencyTargetStatus">
 </form>
 {% endif %}
 
@@ -602,6 +612,34 @@ function openMachineDetail(machineKey){
     });
   }
   document.getElementById('machineDetailModal').classList.add('show');
+}
+
+function emergencyStopSter(machineKey){
+  const choice = prompt(
+    '멸균 긴급 종료 처리 방식을 선택해줘.\n1: 전 단계(멸균적재)로 되돌리기\n2: 다음 단계(멸균완료)로 처리\n취소: 진행 안함',
+    '1'
+  );
+  if(choice === null) return;
+
+  const normalized = choice.trim();
+  let targetStatus = '';
+  if(normalized === '1'){
+    targetStatus = 'ster_load';
+  }else if(normalized === '2'){
+    targetStatus = 'ster_done';
+  }else{
+    alert('1 또는 2를 입력해야 진행할 수 있다.');
+    return;
+  }
+
+  const message = targetStatus === 'ster_load'
+    ? '멸균중 기구들을 멸균적재 상태로 되돌릴까?'
+    : '멸균중 기구들을 멸균완료 상태로 처리할까?';
+  if(!confirm(message)) return;
+
+  document.getElementById('emergencyMachineKey').value = machineKey;
+  document.getElementById('emergencyTargetStatus').value = targetStatus;
+  document.getElementById('emergencyStopForm').submit();
 }
 
 function formatTimer(dueAt){
