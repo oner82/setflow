@@ -716,6 +716,40 @@ def csr_machine_start(
     return RedirectResponse("/csr", status_code=302)
 
 
+@app.post("/csr/machine/emergency-stop")
+def csr_machine_emergency_stop(
+    request: Request,
+    machine_key: str = Form(...),
+    target_status: str = Form(...),
+    db=Depends(db_dep),
+):
+    if request.session.get("role") != "csr":
+        return RedirectResponse("/login")
+
+    if target_status not in {"ster_load", "ster_done"}:
+        return RedirectResponse("/csr", status_code=302)
+
+    active_records = db.query(UsageRecord).filter(
+        UsageRecord.machine_key == machine_key,
+        UsageRecord.status == "멸균중",
+    ).all()
+    if not active_records:
+        return RedirectResponse("/csr", status_code=302)
+
+    n = now()
+    for r in active_records:
+        if target_status == "ster_load":
+            r.status = "멸균적재"
+            r.process_started_at = None
+            r.process_due_at = None
+            r.process_minutes = None
+        else:
+            r.status = "멸균완료"
+            r.sterilized_at = n
+    db.commit()
+    return RedirectResponse("/csr", status_code=302)
+
+
 @app.get("/admin", response_class=HTMLResponse)
 def admin_page(request: Request, db=Depends(db_dep)):
     if request.session.get("role") != "admin":
