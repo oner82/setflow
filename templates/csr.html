@@ -50,6 +50,7 @@
   .record.receive{border-left-color:var(--s-receive)}
   .record.wash{border-left-color:var(--s-wash)}
   .record.washdone{border-left-color:var(--s-washdone)}
+  .record.sterload{border-left-color:#8b5cf6}
   .record.ster{border-left-color:var(--s-ster)}
   .record.sterdone{border-left-color:var(--s-sterdone)}
   .record.out{border-left-color:var(--s-out)}
@@ -73,6 +74,7 @@
   .pill.state-receive{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
   .pill.state-wash{background:#ecfeff;color:#0f766e;border:1px solid #99f6e4}
   .pill.state-washdone{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+  .pill.state-sterload{background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe}
   .pill.state-ster{background:#fff7ed;color:#c2410c;border:1px solid #fdba74}
   .pill.state-sterdone{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
   .pill.state-out{background:#faf5ff;color:#7c3aed;border:1px solid #ddd6fe}
@@ -101,6 +103,14 @@
     border:1px solid #cbd5e1;background:#fff;border-radius:12px;padding:10px;text-align:left;cursor:pointer;font-weight:800
   }
   .pick.active{border-color:#2563eb;background:#eff6ff}
+  .machine-card .start-btn{margin-top:8px;height:30px;padding:0 10px;border:none;border-radius:9px;background:#1d4ed8;color:#fff;font-weight:800;cursor:pointer}
+  .machine-card .start-btn:hover{background:#1e40af}
+  .machine-card.clickable{cursor:pointer}
+
+  .machine-list{max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+  .machine-list-item{border:1px solid #d8e0ea;border-radius:10px;padding:8px 10px;background:#f8fafc}
+  .machine-list-top{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:700}
+  .machine-list-sub{font-size:12px;color:#64748b;margin-top:4px}
   .rowx{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
   .rowx input{height:40px;border:1px solid #cbd5e1;border-radius:10px;padding:0 10px;width:140px}
 
@@ -176,17 +186,28 @@
 
 <div class="machine-grid">
   {% for m in machine_board %}
-    <div class="machine-card {{ 'busy' if m.status=='사용중' else 'idle' }}" {% if m.due_at %}data-due-at="{{m.due_at}}"{% endif %}>
+    <div class="machine-card {{ 'busy' if m.status in ['사용중','적재중'] else 'idle' }} clickable" {% if m.due_at %}data-due-at="{{m.due_at}}"{% endif %} onclick="openMachineDetail('{{m.key}}')">
       <div class="m-name">{{m.name}}</div>
       <div class="m-status">{{m.status}}</div>
       <div class="m-meta">
+        {% if m.process_type == 'ster' %}
+          적재 {{m.loaded_count}}건 · 멸균중 {{m.active_count}}건<br>
+        {% endif %}
         {% if m.status=='사용중' %}
           {% if m.item_name %}{{m.item_name}}<br>{% endif %}
           종료예정 <span class="due-text">{{m.due_at[:16].replace('T',' ') if m.due_at else '-'}}</span> · <span class="machine-timer">-</span>
+        {% elif m.process_type == 'ster' and m.loaded_count > 0 %}
+          적재 완료, 멸균 시작 대기
         {% else %}
           기본 {{m.duration}}분
         {% endif %}
       </div>
+      {% if not readonly and m.process_type == 'ster' and m.loaded_count > 0 %}
+      <form method="post" action="/csr/machine/start" onsubmit="event.stopPropagation();">
+        <input type="hidden" name="machine_key" value="{{m.key}}">
+        <button class="start-btn" type="submit" onclick="event.stopPropagation();">멸균시작</button>
+      </form>
+      {% endif %}
     </div>
   {% endfor %}
 </div>
@@ -200,6 +221,7 @@
   <button class="primary" onclick="openWashModal()">세척 시작</button>
   <button class="neutral" onclick="submitBulk('wash_done')">세척완료</button>
   <button class="primary" onclick="openSterModal()">멸균 시작</button>
+  <button class="primary" onclick="openSterLoadModal()">멸균 적재</button>
   <button class="neutral" onclick="submitBulk('ster_done')">멸균완료</button>
   <button class="neutral" onclick="submitBulk('release')">불출</button>
   <button class="clear" onclick="clearSelection()">선택해제</button>
@@ -231,7 +253,7 @@
 
   <div class="cards">
     {% for r in recs %}
-      {% set cls = 'return' if r.status=='반납' else 'receive' if r.status=='반입확인' else 'wash' if r.status=='세척중' else 'washdone' if r.status=='세척완료' else 'ster' if r.status=='멸균중' else 'sterdone' if r.status=='멸균완료' else 'out' %}
+      {% set cls = 'return' if r.status=='반납' else 'receive' if r.status=='반입확인' else 'wash' if r.status=='세척중' else 'washdone' if r.status=='세척완료' else 'sterload' if r.status=='멸균적재' else 'ster' if r.status=='멸균중' else 'sterdone' if r.status=='멸균완료' else 'out' %}
       <div class="record {{cls}}" data-status="{{r.status}}">
         {% if not readonly %}
           {% if cls == 'out' %}
@@ -267,6 +289,7 @@
             {% if r.status=='반납' %}<button class="next" type="button" onclick="submitBulk('receive',['{{r.id}}'])">반입확인</button>{% endif %}
             {% if r.status=='반입확인' %}<button class="next" type="button" onclick="openWashModal(['{{r.id}}'])">세척 시작</button>{% endif %}
             {% if r.status=='세척중' %}<button class="next" type="button" onclick="submitBulk('wash_done',['{{r.id}}'])">세척완료</button>{% endif %}
+            {% if r.status=='세척완료' %}<button class="next" type="button" onclick="openSterLoadModal(['{{r.id}}'])">멸균 적재</button>{% endif %}
             {% if r.status=='세척완료' %}<button class="next" type="button" onclick="openSterModal(['{{r.id}}'])">멸균 시작</button>{% endif %}
             {% if r.status=='멸균중' %}<button class="next" type="button" onclick="submitBulk('ster_done',['{{r.id}}'])">멸균완료</button>{% endif %}
             {% if r.status=='멸균완료' %}<button class="next" type="button" onclick="submitBulk('release',['{{r.id}}'])">불출</button>{% endif %}
@@ -294,20 +317,31 @@
 
 <div id="sterModal" class="modal-backdrop">
   <div class="modal">
-    <h3>멸균 시작</h3>
+    <h3 id="sterModalTitle">멸균 시작</h3>
     <div class="machine-picks">
       {% for m in ster_machines %}
       <button type="button" class="pick" data-key="{{m.machine_key}}" data-min="{{m.duration_minutes}}" data-target="ster">{{m.machine_name}}<br><span class="subtle">기본 {{m.duration_minutes}}분</span></button>
       {% endfor %}
     </div>
     <div class="rowx"><div class="subtle">관리자 화면에서 기본 시간을 바꿀 수 있다</div></div>
-    <div class="rowx" style="justify-content:flex-end"><button class="small-btn" type="button" onclick="closeModals()">취소</button><button class="btn warn" type="button" onclick="confirmSter()">확인</button></div>
+    <div class="rowx" style="justify-content:flex-end"><button class="small-btn" type="button" onclick="closeModals()">취소</button><button id="sterConfirmBtn" class="btn warn" type="button" onclick="confirmSter()">확인</button></div>
   </div>
 </div>
+
 {% endif %}
+
+<div id="machineDetailModal" class="modal-backdrop">
+  <div class="modal">
+    <h3 id="machineDetailTitle">기계 상태</h3>
+    <div id="machineDetailSummary" class="subtle" style="margin-bottom:10px"></div>
+    <div id="machineDetailList" class="machine-list"></div>
+    <div class="rowx" style="justify-content:flex-end"><button class="small-btn" type="button" onclick="closeModals()">닫기</button></div>
+  </div>
+</div>
 
 <script>
 let manualSelection = [];
+const machineBoard = {{ machine_board|tojson }};
 
 function updateClock(){
   const el = document.getElementById('currentTime');
@@ -352,6 +386,7 @@ function canRunBulk(action, optionalIds){
   if(action === 'wash_start' && s !== '반입확인') return false;
   if(action === 'wash_done' && s !== '세척중') return false;
   if(action === 'ster_start' && s !== '세척완료') return false;
+  if(action === 'ster_load' && s !== '세척완료') return false;
   if(action === 'ster_done' && s !== '멸균중') return false;
   if(action === 'release' && s !== '멸균완료') return false;
   return true;
@@ -421,11 +456,30 @@ function openSterModal(optionalIds){
     return;
   }
   document.getElementById('sterModal').classList.add('show');
+  sterModalMode = 'start';
+  document.getElementById('sterModalTitle').textContent = '멸균 시작';
+  document.getElementById('sterConfirmBtn').textContent = '확인';
+}
+
+function openSterLoadModal(optionalIds){
+  manualSelection=currentIds(optionalIds);
+  if(!manualSelection.length){
+    alert('선택된 항목 없음');
+    return;
+  }
+  if(!canRunBulk('ster_load', optionalIds)){
+    alert('세척완료 상태의 기구만 멸균 적재할 수 있다.');
+    return;
+  }
+  document.getElementById('sterModal').classList.add('show');
+  sterModalMode = 'load';
+  document.getElementById('sterModalTitle').textContent = '멸균 적재';
+  document.getElementById('sterConfirmBtn').textContent = '적재';
 }
 
 function closeModals(){ document.querySelectorAll('.modal-backdrop').forEach(x=>x.classList.remove('show')); }
 
-let washMachineKey='', washDefaultMin=10, sterMachineKey='', sterDefaultMin=0;
+let washMachineKey='', washDefaultMin=10, sterMachineKey='', sterDefaultMin=0, sterModalMode='start';
 
 document.querySelectorAll('.pick[data-target="wash"]').forEach(btn=>btn.addEventListener('click',()=>{
   document.querySelectorAll('.pick[data-target="wash"]').forEach(b=>b.classList.remove('active'));
@@ -459,11 +513,35 @@ function confirmSter(){
     alert('멸균 장비 선택');
     return;
   }
-  document.getElementById('bulkAction').value='ster_start';
+  document.getElementById('bulkAction').value=sterModalMode === 'load' ? 'ster_load' : 'ster_start';
   document.getElementById('bulkRecordIds').value=manualSelection.join(',');
   document.getElementById('bulkMachineKey').value=sterMachineKey;
-  document.getElementById('bulkMinutes').value=sterDefaultMin||0;
+  document.getElementById('bulkMinutes').value=sterModalMode === 'load' ? 0 : (sterDefaultMin||0);
   document.getElementById('bulkForm').submit();
+}
+
+function openMachineDetail(machineKey){
+  const m = machineBoard.find(x=>x.key===machineKey);
+  if(!m) return;
+  document.getElementById('machineDetailTitle').textContent = `${m.name} 상태`;
+  document.getElementById('machineDetailSummary').textContent = `적재 ${m.loaded_count||0}건 · 진행중 ${m.active_count||0}건`;
+  const list = document.getElementById('machineDetailList');
+  list.innerHTML = '';
+  if(!m.records || !m.records.length){
+    list.innerHTML = '<div class="subtle">현재 적재/진행중인 기구가 없다.</div>';
+  }else{
+    m.records.forEach(rec=>{
+      const div = document.createElement('div');
+      div.className = 'machine-list-item';
+      const dueText = rec.due_at ? `종료예정 ${new Date(rec.due_at).toLocaleString()}` : '대기중';
+      div.innerHTML = `
+        <div class="machine-list-top"><span>${rec.name}</span><span>${rec.status}</span></div>
+        <div class="machine-list-sub">${rec.room_no}번방 / ${rec.surgery_order}차 · ${dueText}</div>
+      `;
+      list.appendChild(div);
+    });
+  }
+  document.getElementById('machineDetailModal').classList.add('show');
 }
 
 function formatTimer(dueAt){
