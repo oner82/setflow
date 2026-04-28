@@ -120,6 +120,11 @@
   .machine-list-item{border:1px solid #d8e0ea;border-radius:10px;padding:8px 10px;background:#f8fafc}
   .machine-list-top{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:700}
   .machine-list-sub{font-size:12px;color:#64748b;margin-top:4px}
+  .emergency-choice-wrap{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+  .emergency-choice-btn{
+    width:100%;padding:12px;border-radius:12px;border:1px solid #d8e0ea;background:#fff;text-align:left;cursor:pointer;font-weight:800
+  }
+  .emergency-choice-btn:hover{background:#f8fafc}
   .rowx{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
   .rowx input{height:40px;border:1px solid #cbd5e1;border-radius:10px;padding:0 10px;width:140px}
 
@@ -354,9 +359,28 @@
   </div>
 </div>
 
+{% if not readonly %}
+<div id="emergencyChoiceModal" class="modal-backdrop">
+  <div class="modal">
+    <h3>멸균 긴급 종료</h3>
+    <div class="subtle">원하는 처리 버튼을 눌러 바로 결정할 수 있다.</div>
+    <div class="emergency-choice-wrap">
+      <button class="emergency-choice-btn" type="button" onclick="submitEmergencyChoice('ster_load')">
+        1) 전 단계로 되돌리기<br><span class="subtle">멸균중 → 멸균적재</span>
+      </button>
+      <button class="emergency-choice-btn" type="button" onclick="submitEmergencyChoice('ster_done')">
+        2) 다음 단계로 처리하기<br><span class="subtle">멸균중 → 멸균완료</span>
+      </button>
+    </div>
+    <div class="rowx" style="justify-content:flex-end"><button class="small-btn" type="button" onclick="closeModals()">취소</button></div>
+  </div>
+</div>
+{% endif %}
+
 <script>
 let manualSelection = [];
 const machineBoard = {{ machine_board|tojson }};
+let emergencyMachineKey = '';
 
 function updateClock(){
   const el = document.getElementById('currentTime');
@@ -547,7 +571,10 @@ function openSterLoadModal(optionalIds){
   document.getElementById('sterConfirmBtn').textContent = '적재';
 }
 
-function closeModals(){ document.querySelectorAll('.modal-backdrop').forEach(x=>x.classList.remove('show')); }
+function closeModals(){
+  document.querySelectorAll('.modal-backdrop').forEach(x=>x.classList.remove('show'));
+  emergencyMachineKey = '';
+}
 
 let washMachineKey='', washDefaultMin=10, sterMachineKey='', sterDefaultMin=0, sterModalMode='start';
 
@@ -615,29 +642,22 @@ function openMachineDetail(machineKey){
 }
 
 function emergencyStopSter(machineKey){
-  const choice = prompt(
-    '멸균 긴급 종료 처리 방식을 선택해줘.\n1: 전 단계(멸균적재)로 되돌리기\n2: 다음 단계(멸균완료)로 처리\n취소: 진행 안함',
-    '1'
-  );
-  if(choice === null) return;
+  emergencyMachineKey = machineKey;
+  const modal = document.getElementById('emergencyChoiceModal');
+  if(modal) modal.classList.add('show');
+}
 
-  const normalized = choice.trim();
-  let targetStatus = '';
-  if(normalized === '1'){
-    targetStatus = 'ster_load';
-  }else if(normalized === '2'){
-    targetStatus = 'ster_done';
-  }else{
-    alert('1 또는 2를 입력해야 진행할 수 있다.');
+function submitEmergencyChoice(targetStatus){
+  if(!emergencyMachineKey){
+    alert('멸균 장비 정보를 다시 확인해줘.');
+    return;
+  }
+  if(!['ster_load', 'ster_done'].includes(targetStatus)){
+    alert('긴급 종료 처리 방식이 올바르지 않다.');
     return;
   }
 
-  const message = targetStatus === 'ster_load'
-    ? '멸균중 기구들을 멸균적재 상태로 되돌릴까?'
-    : '멸균중 기구들을 멸균완료 상태로 처리할까?';
-  if(!confirm(message)) return;
-
-  document.getElementById('emergencyMachineKey').value = machineKey;
+  document.getElementById('emergencyMachineKey').value = emergencyMachineKey;
   document.getElementById('emergencyTargetStatus').value = targetStatus;
   document.getElementById('emergencyStopForm').submit();
 }
