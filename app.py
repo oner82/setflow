@@ -145,9 +145,10 @@ def process_rank(status: str) -> int:
         "반입확인": 2,
         "세척중": 3,
         "세척완료": 4,
-        "멸균중": 5,
-        "멸균완료": 6,
-        "불출": 7,
+        "멸균적재": 5,
+        "멸균중": 6,
+        "멸균완료": 7,
+        "불출": 8,
     }
     return order.get(status, 99)
 
@@ -427,7 +428,7 @@ def get_machine_map(db):
 
 def build_csr_groups(db, q: str = ""):
     query = db.query(UsageRecord).join(Item, UsageRecord.item_id == Item.id).filter(UsageRecord.status.in_([
-        "반납", "반입확인", "세척중", "세척완료", "멸균중", "멸균완료", "불출"
+        "반납", "반입확인", "세척중", "세척완료", "멸균적재", "멸균중", "멸균완료", "불출"
     ]))
     if q:
         query = query.filter(Item.name.ilike(f"%{q}%"))
@@ -455,15 +456,52 @@ def build_machine_board(db):
     machines = [keyed[k] for k in order_keys if k in keyed] + [m for m in all_rows if m.machine_key not in order_keys]
     board = []
     for m in machines:
-        active_rec = db.query(UsageRecord).filter(UsageRecord.machine_key == m.machine_key, UsageRecord.status.in_(["세척중", "멸균중"])).order_by(UsageRecord.process_started_at.desc()).first()
+        if m.process_type == "ster":
+            tracked_statuses = ["멸균적재", "멸균중"]
+        else:
+            tracked_statuses = ["세척중"]
+        tracked_records = (
+            db.query(UsageRecord)
+            .filter(UsageRecord.machine_key == m.machine_key, UsageRecord.status.in_(tracked_statuses))
+            .order_by(UsageRecord.process_started_at.desc(), UsageRecord.id.desc())
+            .all()
+        )
+        active_records = [r for r in tracked_records if r.status in ("세척중", "멸균중")]
+        loaded_records = [r for r in tracked_records if r.status == "멸균적재"]
+        active_rec = active_records[0] if active_records else None
+
+        if m.process_type == "ster":
+            if active_records:
+                machine_status = "사용중"
+            elif loaded_records:
+                machine_status = "적재중"
+            else:
+                machine_status = "비어있음"
+        else:
+            machine_status = "사용중" if active_records else "비어있음"
+
         board.append({
             "key": m.machine_key,
             "name": m.machine_name,
             "process_type": m.process_type,
             "duration": m.duration_minutes,
-            "status": "사용중" if active_rec else "비어있음",
+            "status": machine_status,
             "due_at": active_rec.process_due_at.isoformat() if active_rec and active_rec.process_due_at else "",
             "item_name": active_rec.item.name if active_rec else "",
+            "active_count": len(active_records),
+            "loaded_count": len(loaded_records),
+            "records": [
+                {
+                    "id": r.id,
+                    "name": f"{r.item.name} #{r.set_instance.serial_no}" if r.set_instance else r.item.name,
+                    "status": r.status,
+                    "room_no": r.room_no,
+                    "surgery_order": r.surgery_order,
+                    "started_at": r.process_started_at.isoformat() if r.process_started_at else "",
+                    "due_at": r.process_due_at.isoformat() if r.process_due_at else "",
+                }
+                for r in tracked_records
+            ],
         })
     return board
 
@@ -606,6 +644,8 @@ def csr_bulk(
         elif action == "wash_done":
             r.status = "세척완료"
         elif action == "ster_start":
+            if r.status != "세척완료":
+                continue
             use_min = minutes or (machine.duration_minutes if machine else 0)
             r.status = "멸균중"
             r.process_started_at = n
@@ -614,6 +654,16 @@ def csr_bulk(
             r.machine_name = machine.machine_name if machine else None
             r.process_minutes = use_min
             r.is_urgent = False
+        elif action == "ster_load":
+            if r.status != "세척완료":
+                continue
+            if machine and machine.process_type == "ster":
+                r.status = "멸균적재"
+                r.machine_key = machine.machine_key
+                r.machine_name = machine.machine_name
+                r.process_started_at = None
+                r.process_due_at = None
+                r.process_minutes = None
         elif action == "ster_done":
             r.status = "멸균완료"
             r.sterilized_at = n
@@ -628,6 +678,40 @@ def csr_bulk(
             r.is_urgent = not bool(r.is_urgent)
         elif action == "toggle_contam":
             r.is_contaminated = not bool(r.is_contaminated)
+    db.commit()
+    return RedirectResponse("/csr", status_code=302)
+
+
+@app.post("/csr/machine/start")
+def csr_machine_start(
+    request: Request,
+    machine_key: str = Form(...),
+    db=Depends(db_dep),
+):
+    if request.session.get("role") != "csr":
+        return RedirectResponse("/login")
+    machine = db.query(MachineConfig).filter(
+        MachineConfig.machine_key == machine_key,
+        MachineConfig.process_type == "ster",
+        MachineConfig.active == True,
+    ).first()
+    if not machine:
+        return RedirectResponse("/csr", status_code=302)
+
+    loaded_records = db.query(UsageRecord).filter(
+        UsageRecord.machine_key == machine.machine_key,
+        UsageRecord.status == "멸균적재",
+    ).all()
+    if not loaded_records:
+        return RedirectResponse("/csr", status_code=302)
+
+    n = now()
+    for r in loaded_records:
+        r.status = "멸균중"
+        r.process_started_at = n
+        r.process_due_at = n + dt.timedelta(minutes=machine.duration_minutes)
+        r.process_minutes = machine.duration_minutes
+        r.is_urgent = False
     db.commit()
     return RedirectResponse("/csr", status_code=302)
 
